@@ -1,15 +1,16 @@
 # tray.ps1 — Windows タスクトレイ常駐 (MAC spoof管理)
 # 起動: powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\tray.ps1"
 
-try {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-} catch {
-    $err = "Failed to load .NET assemblies: $_"
-    [System.Windows.Forms.MessageBox]::Show($err, "mac-spoof error", "OK", "Error")
-    exit 1
-}
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
+# ---- 非表示フォーム (メッセージポンプ用) ----
+$form = New-Object System.Windows.Forms.Form
+$form.WindowState = "Minimized"
+$form.ShowInTaskbar = $false
+$form.Load.Add({ $form.Hide() })
+
+# ---- 定数 ----
 $IntervalMs = 10000
 
 function Get-NextRotateTime {
@@ -33,37 +34,29 @@ function Get-WiFiStatus {
     return $info
 }
 
-# ---- アイコン ----
+# ---- タスクトレイアイコン ----
 $tray = New-Object System.Windows.Forms.NotifyIcon
 $tray.Icon = [System.Drawing.SystemIcons]::Information
 $tray.Visible = $true
+$tray.Text = "mac-spoof starting..."
 
-# ツールチップ (63文字制限)
-$timerUpdate = {
-    $info = Get-WiFiStatus
-    $next = Get-NextRotateTime
-    $remain = [math]::Round(($next - [DateTime]::Now).TotalMinutes, 1)
-    $mac = $info.MAC
-    if ($mac.Length -gt 11) { $mac = $mac.Substring(0, 11) + ".." }
-    $ssid = $info.SSID
-    if ($ssid.Length -gt 12) { $ssid = $ssid.Substring(0, 12) + ".." }
-    $tray.Text = "$mac $ssid ${remain}m"
-}
-
+# ---- タイマー ----
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = $IntervalMs
 $timer.Add_Tick({
-    & $timerUpdate
     $info = Get-WiFiStatus
-    $tray.BalloonTipTitle = "mac-spoof"
-    $tray.BalloonTipText = "MAC: $($info.MAC)`nSSID: $($info.SSID)`nSignal: $($info.Signal)"
+    $next = Get-NextRotateTime
+    $remain = [math]::Round(($next - [DateTime]::Now).TotalMinutes, 1)
+    $mac = $info.MAC; if ($mac.Length -gt 17) { $mac = $mac.Substring(0, 17) }
+    $ssid = $info.SSID; if ($ssid.Length -gt 13) { $ssid = $ssid.Substring(0, 13) + ".." }
+    $tray.Text = "$mac $ssid ${remain}m"
 })
 
-# ---- メニュー ----
+# ---- 右クリックメニュー ----
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 
 $itemRotate = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemRotate.Text = "Rotate Now"
+$itemRotate.Text = "&Rotate Now"
 $itemRotate.Add_Click({
     $tray.BalloonTipTitle = "mac-spoof"
     $tray.BalloonTipText = "Rotating MAC..."
@@ -79,7 +72,7 @@ $itemRotate.Add_Click({
 $menu.Items.Add($itemRotate) | Out-Null
 
 $itemStatus = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemStatus.Text = "Show Status"
+$itemStatus.Text = "&Show Status"
 $itemStatus.Add_Click({
     $info = Get-WiFiStatus
     $next = Get-NextRotateTime
@@ -89,26 +82,27 @@ $itemStatus.Add_Click({
         "mac-spoof", "OK", "Information")
 })
 $menu.Items.Add($itemStatus) | Out-Null
-
 $menu.Items.Add("-") | Out-Null
 
 $itemExit = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemExit.Text = "Exit"
+$itemExit.Text = "E&xit"
 $itemExit.Add_Click({
     $timer.Stop()
     $tray.Visible = $false
-    [System.Windows.Forms.Application]::Exit()
+    $form.Close()
 })
 $menu.Items.Add($itemExit) | Out-Null
 
 $tray.ContextMenuStrip = $menu
 
-# ---- 初回表示 ----
+# ---- 初回更新 ----
 $info = Get-WiFiStatus
+$tray.Text = "$($info.MAC) $($info.SSID)"
 $tray.BalloonTipTitle = "mac-spoof"
 $tray.BalloonTipText = "MAC: $($info.MAC)`nSSID: $($info.SSID)"
 $tray.ShowBalloonTip(3000)
 
-# ---- 起動 ----
 $timer.Start()
-[System.Windows.Forms.Application]::Run()
+
+# ---- メッセージポンプ起動 (フォーム経由で確実に) ----
+[System.Windows.Forms.Application]::Run($form)
