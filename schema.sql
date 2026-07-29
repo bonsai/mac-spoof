@@ -1,5 +1,5 @@
--- tsubame.db schema
--- Used by: tsubame-agent (Go), tsubame.py (Python CLI), wifi-mac-rotate.sh (bash wrapper)
+-- database schema
+-- Used by: tsubame-agent (Go), ms.py (Python CLI), wifi-mac-rotate.sh
 
 CREATE TABLE IF NOT EXISTS tsubame_probes (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

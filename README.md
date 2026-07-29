@@ -19,8 +19,8 @@ Wi-Fi MAC アドレス改竄で McDonald's 無料Wi-Fi の1時間接続制限を
 | `wifi-mac-rotate.ps1` | MAC 改竄 (レジストリ方式) | Windows PowerShell (管理者) |
 | `wifi-mac-rotate.sh` | 上を呼ぶラッパー + DB記録 | WSL |
 | `ms.py` | DB 状態表示 CLI | WSL (Python3) |
-| `schema.sql` | tsubame.db スキーマ | SQLite |
-| `config/tsubame-meta.json.template` | 位置情報テンプレ | — |
+| `schema.sql` | DB スキーマ (tsubame.db) | SQLite |
+| `config/meta.template.json` | 位置情報テンプレ | — |
 | `install.sh` | セットアップ | WSL |
 
 ## 使い方

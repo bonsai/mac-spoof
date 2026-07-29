@@ -3,8 +3,8 @@
 #
 # This script:
 #   1. Creates ~/.wifi-mac-tracker directory
-#   2. Initializes tsubame.db from schema.sql
-#   3. Creates default tsubame-meta.json if not present
+#   2. Initializes DB from schema.sql
+#   3. Creates default meta.json if not present
 #   4. Copies wifi-mac-rotate.sh + .ps1 to /usr/local/bin
 #   5. Shows crontab instructions
 #
@@ -35,8 +35,8 @@ fi
 
 # Step 3: Default meta file
 if [ ! -f "$INSTALL_DIR/tsubame-meta.json" ]; then
-    if [ -f "$REPO_DIR/config/tsubame-meta.json.template" ]; then
-        cp "$REPO_DIR/config/tsubame-meta.json.template" "$INSTALL_DIR/tsubame-meta.json"
+    if [ -f "$REPO_DIR/config/meta.template.json" ]; then
+        cp "$REPO_DIR/config/meta.template.json" "$INSTALL_DIR/tsubame-meta.json"
         echo "[3] Meta created: $INSTALL_DIR/tsubame-meta.json (edit as needed)"
     else
         echo "[3] WARN: template not found, skipping meta"

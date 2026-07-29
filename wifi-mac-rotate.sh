@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wifi-mac-rotate.sh — WSL wrapper for MAC spoofing with tsubame.db logging
+# wifi-mac-rotate.sh — WSL wrapper for MAC spoofing with DB logging
 #
 # Usage:
 #   ./wifi-mac-rotate.sh              Rotate MAC + log to DB
@@ -88,7 +88,7 @@ NEW_BSSID=$(get_windows_bssid)
 
 log "AFTER:  MAC=$NEW_MAC  SSID=$NEW_SSID (PS exit=$PS_EXIT)"
 
-# --- Log to tsubame.db ---
+# --- Log to DB ---
 if [ -f "$TSUBAME_DB" ]; then
     sqlite3 "$TSUBAME_DB" "
         INSERT INTO events (timestamp, event_type, ssid, net_type, mac_address, adapter_name, detail)
@@ -117,7 +117,7 @@ if [ -f "$TSUBAME_DB" ]; then
     " 2>/dev/null || true
 fi
 
-# --- Trigger tsubame scan ---
+# --- Trigger scan ---
 if [ -x "$TSUBAME_BIN" ]; then
     "$TSUBAME_BIN" --once >> "$TSUBAME_LOG" 2>&1 || true
 fi

@@ -95,7 +95,7 @@ def cmd_status(args):
         conn.close()
         return
 
-    print("=== tsubame status ===")
+    print("=== status ===")
     print(f"  last probe:  {fmt_time(row['timestamp'])}")
     print(f"  net type:    {row['net_type']}")
     print(f"  SSID:        {row['ssid'] or 'N/A'}")
