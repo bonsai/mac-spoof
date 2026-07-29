@@ -1,14 +1,11 @@
 # tray.ps1 — タスクトレイ常駐 (MAC spoof管理)
-# 起動: powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\tray.ps1"
+# 起動: powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\mac-spoof\tray.ps1"
 
-# ロガー起動 (最優先)
-$log = "$env:USERPROFILE\tray-debug.log"
-function log { $msg = "[$(Get-Date -Format 'HH:mm:ss')] $args" ; $msg | Out-File -Append -FilePath $log ; Write-Host $msg }
+# ---- ロガー (ファイルのみ、Write-Host禁止) ----
+$logFile = "$env:USERPROFILE\tray-debug.log"
+function log { $msg = "[$(Get-Date -Format 'HH:mm:ss')] $args" ; $msg | Out-File -Append -FilePath $logFile }
 
 log "=== START ==="
-
-# 起動通知 (最初だけ)
-$startMsg = $true
 
 # ---- .NET読込 ----
 try {
@@ -17,25 +14,22 @@ try {
     log "Add-Type OK"
 } catch {
     log "Add-Type FAILED: $_"
-    break
+    [System.Windows.Forms.MessageBox]::Show("Add-Type failed: $_", "mac-spoof error")
+    exit 1
 }
+
+# ---- フォーム (非表示, メッセージポンプ用) ----
+$form = New-Object System.Windows.Forms.Form
+$form.WindowState = "Minimized"
+$form.ShowInTaskbar = $false
+$form.add_Load({ $form.Hide() })
+log "Form created"
 
 # ---- アイコンファイル ----
-$icoPath = "$env:USERPROFILE\tray.ico"
+$icoPath = Join-Path $PSScriptRoot "tray.ico"
 log "icoPath: $icoPath (exists=$(Test-Path $icoPath))"
 
-# ---- フォーム (非表示) ----
-try {
-    $form = New-Object System.Windows.Forms.Form
-    $form.WindowState = "Minimized"
-    $form.ShowInTaskbar = $false
-    $form.add_Load({ $form.Hide() })
-    log "Form created"
-} catch {
-    log "Form FAILED: $_"
-}
-
-# ---- WiFi情報 ----
+# ---- WiFi情報取得 (ログ出力なし) ----
 function Get-WiFiStatus {
     $info = @{ MAC = "?"; SSID = "?"; Signal = "?" }
     try {
@@ -46,41 +40,36 @@ function Get-WiFiStatus {
             if ($line -match 'SSID\s*:\s*(.+)')    { $info.SSID = $matches[1].Trim() }
             if ($line -match 'Signal\s*:\s*(\d+)%') { $info.Signal = $matches[1] + "%" }
         }
-        log "WiFi: MAC=$($info.MAC) SSID=$($info.SSID)"
-    } catch { log "WiFi FAILED: $_" }
+    } catch {}
     return $info
 }
 
 # ---- タスクトレイアイコン ----
-try {
-    $tray = New-Object System.Windows.Forms.NotifyIcon
-    log "NotifyIcon created"
-    
-    if (Test-Path $icoPath) {
-        $tray.Icon = [System.Drawing.Icon]::new($icoPath)
-        log "Icon loaded from file"
-    } else {
-        $tray.Icon = [System.Drawing.SystemIcons]::Information
-        log "Icon: fallback Information"
-    }
-    
-    $tray.Visible = $true
-    $tray.Text = "mac-spoof"
-    log "tray.Visible=$($tray.Visible)  tray.Text=$($tray.Text)"
-} catch {
-    log "NotifyIcon FAILED: $_"
+$tray = New-Object System.Windows.Forms.NotifyIcon
+if (Test-Path $icoPath) {
+    $tray.Icon = [System.Drawing.Icon]::new($icoPath)
+} else {
+    $tray.Icon = [System.Drawing.SystemIcons]::Information
 }
+$tray.Visible = $true
+$tray.Text = "mac-spoof"
+log "Tray created"
 
-# ---- タイマー ----
+# ---- タイマー (try/catch必須) ----
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 10000
 $timer.Add_Tick({
-    $info = Get-WiFiStatus
-    $remain = 45 - (([DateTime]::Now.Hour * 60 + [DateTime]::Now.Minute) % 45)
-    if ($remain -eq 45) { $remain = 0 }
-    $mac = $info.MAC; if ($mac.Length -gt 17) { $mac = $mac.Substring(0, 17) }
-    $ssid = $info.SSID; if ($ssid.Length -gt 13) { $ssid = $ssid.Substring(0, 13) }
-    $tray.Text = "$mac $ssid ${remain}m"
+    try {
+        $info = Get-WiFiStatus
+        $remain = 45 - (([DateTime]::Now.Hour * 60 + [DateTime]::Now.Minute) % 45)
+        if ($remain -eq 45) { $remain = 0 }
+        $mac = $info.MAC; if ($mac.Length -gt 17) { $mac = $mac.Substring(0, 17) }
+        $ssid = $info.SSID; if ($ssid.Length -gt 13) { $ssid = $ssid.Substring(0, 13) }
+        $tray.Text = "$mac $ssid ${remain}m"
+    } catch {
+        # サイレント: ログのみ
+        "timer err: $_" | Out-File -Append -FilePath $logFile
+    }
 })
 
 # ---- メニュー ----
@@ -109,6 +98,7 @@ $itemStatus.Add_Click({
         "mac-spoof")
 })
 $menu.Items.Add($itemStatus) | Out-Null
+
 $menu.Items.Add("-") | Out-Null
 
 $itemExit = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -122,28 +112,15 @@ $itemExit.Add_Click({
 $menu.Items.Add($itemExit) | Out-Null
 
 $tray.ContextMenuStrip = $menu
-log "Menu set"
+log "Menu ready"
 
 # ---- 初回更新 ----
 $info = Get-WiFiStatus
 $tray.Text = "$($info.MAC) $($info.SSID)"
 $timer.Start()
+log "Timer started"
 
-log "=== Calling Application.Run(form) ==="
-
-# 初回のみ確認ポップアップ
-if ($startMsg) {
-    [System.Windows.Forms.MessageBox]::Show(
-        "mac-spoof tray icon running.`nLook for red/yellow circle near clock.",
-        "mac-spoof", "OK", "Information")
-    $startMsg = $false
-}
-
-try {
-    [System.Windows.Forms.Application]::Run($form)
-    log "Application.Run returned (script exiting)"
-} catch {
-    log "Application.Run FAILED: $_"
-}
-
+# ---- 起動 ----
+log "=== Application.Run(form) ==="
+[System.Windows.Forms.Application]::Run($form)
 log "=== END ==="
