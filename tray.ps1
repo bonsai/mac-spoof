@@ -1,32 +1,24 @@
 # tray.ps1 — Windows タスクトレイ常駐 (MAC spoof管理)
-#
-# 起動方法 (管理者PowerShell):
-#   powershell -ExecutionPolicy Bypass -File tray.ps1
-#
-# スタートアップ登録:
-#   powershell -ExecutionPolicy Bypass -Command "& {
-#     $wsh = New-Object -ComObject WScript.Shell
-#     $s = $wsh.CreateShortcut('~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\mac-spoof-tray.lnk')
-#     $s.TargetPath = 'powershell.exe'
-#     $s.Arguments = '-WindowStyle Hidden -ExecutionPolicy Bypass -File "%USERPROFILE%\tray.ps1"'
-#     $s.Save()
-#   }"
+# 起動: powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\tray.ps1"
 
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+try {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+} catch {
+    $err = "Failed to load .NET assemblies: $_"
+    [System.Windows.Forms.MessageBox]::Show($err, "mac-spoof error", "OK", "Error")
+    exit 1
+}
 
 $IntervalMs = 10000
 
-# ---- 次回45分rotate時刻 ----
 function Get-NextRotateTime {
     $now = [DateTime]::Now
-    $totalMin = $now.Hour * 60 + $now.Minute
-    $remain = 45 - ($totalMin % 45)
+    $remain = 45 - (($now.Hour * 60 + $now.Minute) % 45)
     if ($remain -eq 45) { $remain = 0 }
     return $now.AddMinutes($remain)
 }
 
-# ---- WiFi情報取得 ----
 function Get-WiFiStatus {
     $info = @{ MAC = "N/A"; SSID = "N/A"; Signal = "N/A" }
     try {
@@ -34,32 +26,40 @@ function Get-WiFiStatus {
         if ($a) { $info.MAC = $a.MacAddress }
         $iface = netsh wlan show interfaces
         foreach ($line in $iface) {
-            if ($line -match 'SSID\s*:\s*(.+)')   { $info.SSID = $matches[1].Trim() }
+            if ($line -match 'SSID\s*:\s*(.+)')    { $info.SSID = $matches[1].Trim() }
             if ($line -match 'Signal\s*:\s*(\d+)%') { $info.Signal = $matches[1] + "%" }
         }
     } catch {}
     return $info
 }
 
-# ---- アイコン作成 ----
+# ---- アイコン ----
 $tray = New-Object System.Windows.Forms.NotifyIcon
-$tray.Text = "mac-spoof"
 $tray.Icon = [System.Drawing.SystemIcons]::Information
 $tray.Visible = $true
 
-# タイマー
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = $IntervalMs
-$timer.Add_Tick({
+# ツールチップ (63文字制限)
+$timerUpdate = {
     $info = Get-WiFiStatus
     $next = Get-NextRotateTime
     $remain = [math]::Round(($next - [DateTime]::Now).TotalMinutes, 1)
-    $tray.Text = "MAC: $($info.MAC)`nSSID: $($info.SSID)`nrotate: ${remain}min"
+    $mac = $info.MAC
+    if ($mac.Length -gt 11) { $mac = $mac.Substring(0, 11) + ".." }
+    $ssid = $info.SSID
+    if ($ssid.Length -gt 12) { $ssid = $ssid.Substring(0, 12) + ".." }
+    $tray.Text = "$mac $ssid ${remain}m"
+}
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = $IntervalMs
+$timer.Add_Tick({
+    & $timerUpdate
+    $info = Get-WiFiStatus
     $tray.BalloonTipTitle = "mac-spoof"
     $tray.BalloonTipText = "MAC: $($info.MAC)`nSSID: $($info.SSID)`nSignal: $($info.Signal)"
 })
 
-# ---- コンテキストメニュー ----
+# ---- メニュー ----
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 
 $itemRotate = New-Object System.Windows.Forms.ToolStripMenuItem
@@ -69,13 +69,12 @@ $itemRotate.Add_Click({
     $tray.BalloonTipText = "Rotating MAC..."
     $tray.ShowBalloonTip(2000)
     try {
-        $result = wsl /home/sexy/MEGA/tools/wifi-mac-rotate.sh cron 2>&1
+        wsl /home/sexy/MEGA/tools/wifi-mac-rotate.sh cron 2>&1 | Out-Null
         $tray.BalloonTipText = "MAC rotated!"
-        $tray.ShowBalloonTip(2000)
     } catch {
-        $tray.BalloonTipText = "Failed: $_"
-        $tray.ShowBalloonTip(5000)
+        $tray.BalloonTipText = "Rotate failed"
     }
+    $tray.ShowBalloonTip(3000)
 })
 $menu.Items.Add($itemRotate) | Out-Null
 
