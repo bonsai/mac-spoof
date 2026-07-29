@@ -1,25 +1,16 @@
-# tray.ps1 — Windows タスクトレイ常駐 (MAC spoof管理)
+# tray.ps1 — タスクトレイ常駐
 # 起動: powershell -ExecutionPolicy Bypass -File "%USERPROFILE%\tray.ps1"
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# ---- 非表示フォーム (メッセージポンプ用) ----
+# ---- フォーム (非表示・メッセージポンプ) ----
 $form = New-Object System.Windows.Forms.Form
 $form.WindowState = "Minimized"
 $form.ShowInTaskbar = $false
 $form.add_Load({ $form.Hide() })
 
-# ---- 定数 ----
-$IntervalMs = 10000
-
-function Get-NextRotateTime {
-    $now = [DateTime]::Now
-    $remain = 45 - (($now.Hour * 60 + $now.Minute) % 45)
-    if ($remain -eq 45) { $remain = 0 }
-    return $now.AddMinutes($remain)
-}
-
+# ---- WiFi情報取得 ----
 function Get-WiFiStatus {
     $info = @{ MAC = "N/A"; SSID = "N/A"; Signal = "N/A" }
     try {
@@ -36,16 +27,21 @@ function Get-WiFiStatus {
 
 # ---- タスクトレイアイコン ----
 $tray = New-Object System.Windows.Forms.NotifyIcon
-$tray.Icon = [System.Drawing.SystemIcons]::Information
+$icoPath = Join-Path $PSScriptRoot "tray.ico"
+if (Test-Path $icoPath) {
+    $tray.Icon = [System.Drawing.Icon]::new($icoPath)
+} else {
+    $tray.Icon = [System.Drawing.SystemIcons]::Information
+}
 $tray.Visible = $true
-$tray.Text = "mac-spoof starting..."
+$tray.Text = "mac-spoof"
 
-# ---- タイマー ----
+# ---- 更新タイマー ----
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = $IntervalMs
+$timer.Interval = 10000
 $timer.Add_Tick({
     $info = Get-WiFiStatus
-    $next = Get-NextRotateTime
+    $next = [DateTime]::Now.AddMinutes(45 - (($Now.Hour * 60 + $Now.Minute) % 45))
     $remain = [math]::Round(($next - [DateTime]::Now).TotalMinutes, 1)
     $mac = $info.MAC; if ($mac.Length -gt 17) { $mac = $mac.Substring(0, 17) }
     $ssid = $info.SSID; if ($ssid.Length -gt 13) { $ssid = $ssid.Substring(0, 13) + ".." }
@@ -56,53 +52,48 @@ $timer.Add_Tick({
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 
 $itemRotate = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemRotate.Text = "&Rotate Now"
+$itemRotate.Text = "Rotate Now"
 $itemRotate.Add_Click({
     $tray.BalloonTipTitle = "mac-spoof"
-    $tray.BalloonTipText = "Rotating MAC..."
+    $tray.BalloonTipText = "Rotating..."
     $tray.ShowBalloonTip(2000)
-    try {
-        wsl /home/sexy/MEGA/tools/wifi-mac-rotate.sh cron 2>&1 | Out-Null
-        $tray.BalloonTipText = "MAC rotated!"
-    } catch {
-        $tray.BalloonTipText = "Rotate failed"
-    }
+    try { wsl /home/sexy/MEGA/tools/wifi-mac-rotate.sh cron 2>&1 | Out-Null; $tray.BalloonTipText = "Done!" } catch { $tray.BalloonTipText = "Failed" }
     $tray.ShowBalloonTip(3000)
 })
 $menu.Items.Add($itemRotate) | Out-Null
 
 $itemStatus = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemStatus.Text = "&Show Status"
+$itemStatus.Text = "Show Status"
 $itemStatus.Add_Click({
     $info = Get-WiFiStatus
-    $next = Get-NextRotateTime
+    $next = [DateTime]::Now.AddMinutes(45 - (($Now.Hour * 60 + $Now.Minute) % 45))
     $remain = [math]::Round(($next - [DateTime]::Now).TotalMinutes, 1)
     [System.Windows.Forms.MessageBox]::Show(
-        "MAC:     $($info.MAC)`nSSID:    $($info.SSID)`nSignal:  $($info.Signal)`nNext:    $($next.ToString('HH:mm')) (${remain}min)",
-        "mac-spoof", "OK", "Information")
+        "MAC:  $($info.MAC)`nSSID: $($info.SSID)`nSig:  $($info.Signal)`nNext: $($next.ToString('HH:mm')) (${remain}m)",
+        "mac-spoof")
 })
 $menu.Items.Add($itemStatus) | Out-Null
 $menu.Items.Add("-") | Out-Null
 
 $itemExit = New-Object System.Windows.Forms.ToolStripMenuItem
-$itemExit.Text = "E&xit"
+$itemExit.Text = "Exit"
 $itemExit.Add_Click({
     $timer.Stop()
     $tray.Visible = $false
+    $tray.Dispose()
     $form.Close()
 })
 $menu.Items.Add($itemExit) | Out-Null
 
 $tray.ContextMenuStrip = $menu
 
-# ---- 初回更新 ----
+# ---- 初回表示 ----
 $info = Get-WiFiStatus
 $tray.Text = "$($info.MAC) $($info.SSID)"
 $tray.BalloonTipTitle = "mac-spoof"
-$tray.BalloonTipText = "MAC: $($info.MAC)`nSSID: $($info.SSID)"
-$tray.ShowBalloonTip(3000)
-
+$tray.BalloonTipText = "Ready"
+$tray.ShowBalloonTip(2000)
 $timer.Start()
 
-# ---- メッセージポンプ起動 (フォーム経由で確実に) ----
+# ---- 起動 (フォームでメッセージポンプ) ----
 [System.Windows.Forms.Application]::Run($form)
