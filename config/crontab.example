@@ -1,0 +1,15 @@
+# mac-spoof — 45-minute true interval crontab
+#
+# This runs every 45 minutes starting from 00:00.
+# Pattern: 00:00 → 00:45 → 01:30 → 02:15 → 03:00 → ...
+#
+# Install:
+#   crontab config/crontab.example
+#
+# Or append to existing:
+#   crontab -l | cat - config/crontab.example | crontab
+
+# MAC rotate every 45 minutes (WSL calls Windows PowerShell via wifi-mac-rotate.sh)
+0,45 0,3,6,9,12,15,18,21 * * * /usr/local/bin/wifi-mac-rotate cron
+30    1,4,7,10,13,16,19,22   * * * /usr/local/bin/wifi-mac-rotate cron
+15    2,5,8,11,14,17,20,23   * * * /usr/local/bin/wifi-mac-rotate cron

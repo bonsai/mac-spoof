@@ -1,0 +1,29 @@
+# tsubame.db and logs
+tsubame.db
+*.db
+*.db-journal
+*.log
+*.log.*
+
+# Local config overrides
+config/*.json
+!config/*.template
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Installation target
+/usr/local/bin/wifi-mac-rotate
+/usr/local/bin/wifi-mac-rotate.ps1
+
+# IDE
+.idea/
+.vscode/
