@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tsubame — Wi-Fi session tracker for MAC-spoofing environments
+"""ms — mac-spoof CLI: status viewer for MAC-spoofing environments
 
 Queries the local SQLite DB (tsubame.db) which records:
   - Network probes (5-min interval by tsubame-agent)
@@ -216,7 +216,7 @@ def cmd_scan(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="tsubame — Wi-Fi session tracker")
+    parser = argparse.ArgumentParser(description="ms — mac-spoof status viewer")
     sub = parser.add_subparsers(dest="cmd")
 
     p_status = sub.add_parser("status", help="Show current status")

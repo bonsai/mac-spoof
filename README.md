@@ -18,7 +18,7 @@ Wi-Fi MAC アドレス改竄で McDonald's 無料Wi-Fi の1時間接続制限を
 |----------|------|----------|
 | `wifi-mac-rotate.ps1` | MAC 改竄 (レジストリ方式) | Windows PowerShell (管理者) |
 | `wifi-mac-rotate.sh` | 上を呼ぶラッパー + DB記録 | WSL |
-| `tsubame.py` | DB 状態表示 CLI | WSL (Python3) |
+| `ms.py` | DB 状態表示 CLI | WSL (Python3) |
 | `schema.sql` | tsubame.db スキーマ | SQLite |
 | `config/tsubame-meta.json.template` | 位置情報テンプレ | — |
 | `install.sh` | セットアップ | WSL |
@@ -33,10 +33,10 @@ Wi-Fi MAC アドレス改竄で McDonald's 無料Wi-Fi の1時間接続制限を
 ./wifi-mac-rotate.sh
 
 # DB 確認
-python3 tsubame.py status
-python3 tsubame.py probes
-python3 tsubame.py sessions
-python3 tsubame.py networks
+python3 ms.py status
+python3 ms.py probes
+python3 ms.py sessions
+python3 ms.py networks
 ```
 
 ## 自動化
@@ -65,7 +65,7 @@ USB テザリングをバックアップ回線として繋いでおくと、Wi-F
 - WSL2 (Ubuntu)
 - PowerShell
 - sqlite3
-- Python 3 (tsubame.py を使う場合)
+- Python 3 (ms.py を使う場合)
 
 ## セットアップ
 
