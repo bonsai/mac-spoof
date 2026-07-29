@@ -1,29 +1,24 @@
-# tsubame.db and logs
-tsubame.db
+# Go binary (built)
+ms
+
+# Databases and logs
 *.db
 *.db-journal
+*.db-wal
 *.log
-*.log.*
 
-# Local config overrides
-config/*.json
-!config/*.template
+# Local config override
+meta.json
 
 # OS files
 .DS_Store
 Thumbs.db
-*.swp
 *~
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-
-# Installation target
-/usr/local/bin/wifi-mac-rotate
-/usr/local/bin/wifi-mac-rotate.ps1
+*.swp
 
 # IDE
 .idea/
 .vscode/
+
+# Go
+vendor/
