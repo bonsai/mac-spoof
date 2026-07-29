@@ -8,7 +8,7 @@ Add-Type -AssemblyName System.Drawing
 $form = New-Object System.Windows.Forms.Form
 $form.WindowState = "Minimized"
 $form.ShowInTaskbar = $false
-$form.Load.Add({ $form.Hide() })
+$form.add_Load({ $form.Hide() })
 
 # ---- 定数 ----
 $IntervalMs = 10000
